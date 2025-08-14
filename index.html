@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cohérence Cardiaque</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#219ebc">
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #f4f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
+  h1 {
+    margin-top: 20px;
+  }
+  #circle {
+    width: 150px;
+    height: 150px;
+    margin: 40px auto;
+    border-radius: 50%;
+    transition: transform ease-in-out;
+    background-color: #8ecae6; /* Default color */
+  }
+  .controls {
+    margin-top: 20px;
+  }
+  button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #219ebc;
+    color: white;
+  }
+  button:hover {
+    background-color: #126782;
+  }
+  .custom-controls {
+    margin-top: 20px;
+  }
+  .custom-controls input {
+    width: 60px;
+    padding: 5px;
+    margin: 5px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <h1>🌿 Cohérence Cardiaque</h1>
+  <p id="global-timer">Temps total: 0s</p>
+  <p id="mode-label">Mode : Standard 5-0-5-0</p>
+  <div id="circle"></div>
+  <p id="instruction">Inspire...</p>
+  <p id="timer"> </p>
+
+  <div class="controls">
+    <button onclick="startBreathing(5,0,5,0,'Standard 5-0-5-0')">Standard 5-0-5-0</button>
+    <button onclick="startBreathing(4,0,6,0,'Relaxant 4-0-6-0')">Relaxant 4-0-6-0</button>
+    <button onclick="startBreathing(6,0,4,0,'Dynamisant 6-0-4-0')">Dynamisant 6-0-4-0</button>
+  </div>
+
+  <div class="custom-controls">
+    <label for="inhaleTime">Inspiration (sec):</label>
+    <input type="number" id="inhaleTime" value="5">
+    <label for="pause1Time">Arrêt 1 (sec):</label>
+    <input type="number" id="pause1Time" value="0">
+    <label for="exhaleTime">Expiration (sec):</label>
+    <input type="number" id="exhaleTime" value="5">
+    <label for="pause2Time">Arrêt 2 (sec):</label>
+    <input type="number" id="pause2Time" value="0">
+    <button onclick="startCustomBreathing()">Personnalisé</button>
+  </div>
+
+<script>
+let circle = document.getElementById('circle');
+let instruction = document.getElementById('instruction');
+let modeLabel = document.getElementById('mode-label');
+let timerDisplay = document.getElementById('timer');
+let globalTimerDisplay = document.getElementById('global-timer');
+let interval;
+let globalTimerInterval;
+let totalTime = 0;
+
+function startBreathing(inhale, pause1, exhale, pause2, label) {
+  clearInterval(interval);
+  clearInterval(globalTimerInterval);
+  totalTime = 0;
+  modeLabel.textContent = "Mode : " + label;
+  let phase = 'inhale';
+  instruction.textContent = 'Inspire...';
+  setCircleColor('#b3e2cd'); // Pastel Green
+  animateCircle(inhale);
+  updateTimer(phase, inhale, 0);
+  updateGlobalTimer();
+
+  let count = 0;
+
+  globalTimerInterval = setInterval(() => {
+    totalTime++;
+    updateGlobalTimer();
+  }, 1000);
+
+  interval = setInterval(() => {
+    count++;
+    if (phase === 'inhale') {
+      if (count >= inhale) {
+        count = 0;
+        if (pause1 > 0) {
+          phase = 'pause1';
+          instruction.textContent = 'Arrêt 1...';
+          setCircleColor('gray');
+          animateCircle(pause1, false);
+          updateTimer(phase, pause1, 0);
+        } else {
+          phase = 'exhale';
+          instruction.textContent = 'Expire...';
+          setCircleColor('#8ecae6');
+          animateCircle(exhale, true);
+          updateTimer(phase, exhale, 0);
+        }
+      } else {
+        updateTimer(phase, inhale, count);
+      }
+    } else if (phase === 'pause1') {
+      if (count >= pause1) {
+        count = 0;
+        phase = 'exhale';
+        instruction.textContent = 'Expire...';
+        setCircleColor('#8ecae6');
+        animateCircle(exhale, true);
+        updateTimer(phase, exhale, 0);
+      } else {
+        updateTimer(phase, pause1, count);
+      }
+    } else if (phase === 'exhale') {
+      if (count >= exhale) {
+        count = 0;
+        if (pause2 > 0) {
+          phase = 'pause2';
+          instruction.textContent = 'Arrêt 2...';
+          setCircleColor('gray');
+          animateCircle(pause2, false);
+          updateTimer(phase, pause2, 0);
+        } else {
+          phase = 'inhale';
+          instruction.textContent = 'Inspire...';
+          setCircleColor('#b3e2cd');
+          animateCircle(inhale);
+          updateTimer(phase, inhale, 0);
+        }
+      } else {
+        updateTimer(phase, exhale, count);
+      }
+    } else { // phase === 'pause2'
+      if (count >= pause2) {
+        count = 0;
+        phase = 'inhale';
+        instruction.textContent = 'Inspire...';
+        setCircleColor('#b3e2cd');
+        animateCircle(inhale);
+        updateTimer(phase, inhale, 0);
+      } else {
+        updateTimer(phase, pause2, count);
+      }
+    }
+  }, 1000);
+}
+
+function animateCircle(duration, shrink=false) {
+  circle.style.transition = `transform ${duration}s ease-in-out`;
+  circle.style.transform = shrink ? 'scale(0.6)' : 'scale(1.4)';
+}
+
+function startCustomBreathing() {
+  let inhaleTime = parseInt(document.getElementById('inhaleTime').value);
+  let pause1Time = parseInt(document.getElementById('pause1Time').value);
+  let exhaleTime = parseInt(document.getElementById('exhaleTime').value);
+  let pause2Time = parseInt(document.getElementById('pause2Time').value);
+
+  if (isNaN(inhaleTime) || isNaN(exhaleTime) || isNaN(pause1Time) || isNaN(pause2Time) || inhaleTime < 0 || exhaleTime < 0 || pause1Time < 0 || pause2Time < 0) {
+    alert("Veuillez entrer des valeurs valides.");
+    return;
+  }
+
+  startBreathing(inhaleTime, pause1Time, exhaleTime, pause2Time, `Personnalisé ${inhaleTime}-${pause1Time}-${exhaleTime}-${pause2Time}`);
+}
+
+function updateTimer(phase, duration, count) {
+  timerDisplay.textContent = `${phase}... ${count + 1}/${duration}`;
+}
+
+function updateGlobalTimer() {
+  globalTimerDisplay.textContent = `Temps total: ${totalTime}s`;
+}
+
+function setCircleColor(color) {
+  circle.style.backgroundColor = color;
+}
+
+// Wake Lock pour éviter la veille sur Android/Chrome
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (wakeLock !== null && document.visibilityState === 'visible') {
+    requestWakeLock();
+  }
+});
+requestWakeLock();
+
+// Enregistrer le service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js').then(() => {
+    console.log('Service Worker enregistré');
+  });
+}
+
+// Démarrage par défaut
+startBreathing(5, 0, 5, 0, 'Standard 5-0-5-0');
+</script>
+</body>
+</html>
