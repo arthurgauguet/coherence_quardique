@@ -14,18 +14,16 @@
     margin: 0;
     padding: 0;
   }
-  h1 {
-    margin-top: 20px;
-  }
   #circle {
     width: 150px;
     height: 150px;
     margin: 40px auto;
     border-radius: 50%;
-    transition: transform ease-in-out;
-    background-color: #8ecae6; /* Default color */
+    /* On ne met pas ici de transition globale : on l'ajoute dynamiquement selon la phase */
+    transform: scale(1); /* état initial */
+    background-color: #8ecae6;
   }
-  .controls {
+  .controls, .custom-controls {
     margin-top: 20px;
   }
   button {
@@ -41,9 +39,6 @@
   button:hover {
     background-color: #126782;
   }
-  .custom-controls {
-    margin-top: 20px;
-  }
   .custom-controls input {
     width: 60px;
     padding: 5px;
@@ -53,50 +48,126 @@
 </style>
 </head>
 <body>
-  <p id="global-timer">Temps total: 0s</p>
-  <p id="mode-label">Mode : Standard 5-0-5-0</p>
-  <div id="circle"></div>
-  <p id="instruction">Inspire...</p>
-  <p id="timer"> </p>
 
-  <div class="controls">
-    <button onclick="startBreathing(8,0,8,0,'Standard 8-0-8-0')">Standard 8-0-8-0</button>
-    <button onclick="startBreathing(4,0,6,0,'Relaxant 4-0-6-0')">Relaxant 4-0-6-0</button>
-    <button onclick="startBreathing(6,0,4,0,'Dynamisant 6-0-4-0')">Dynamisant 6-0-4-0</button>
-  </div>
+<p id="global-timer">Temps total: 0 min 0 sec</p>
+<p id="mode-label">Mode : Standard 5-0-5-0</p>
+<div id="circle"></div>
+<p id="instruction">Inspire...</p>
+<p id="timer"> </p>
 
-  <div class="custom-controls">
-    <label for="inhaleTime">Inspiration (sec):</label>
-    <input type="number" id="inhaleTime" value="5">
-    <label for="pause1Time">Arrêt 1 (sec):</label>
-    <input type="number" id="pause1Time" value="0">
-    <label for="exhaleTime">Expiration (sec):</label>
-    <input type="number" id="exhaleTime" value="5">
-    <label for="pause2Time">Arrêt 2 (sec):</label>
-    <input type="number" id="pause2Time" value="0">
-    <button onclick="startCustomBreathing()">Personnalisé</button>
-  </div>
+<!-- Boutons principaux -->
+<button id="startButton">Démarrer la respiration</button>
+<button id="muteButton">🔇 Son coupé</button>
+
+<div class="controls">
+  <button onclick="startBreathing(5,0,5,0,'5-0-5-0')">5</button>
+  <button onclick="startBreathing(6,0,6,0,'6-0-6-0')">6</button>
+  <button onclick="startBreathing(7,0,7,0,'7-0-7-0')">7</button>
+  <button onclick="startBreathing(8,0,8,0,'8-0-8-0')">8</button>
+  <button onclick="startBreathing(9,0,9,0,'9-0-9-0')">9</button>
+  <button onclick="startBreathing(10,0,10,0,'10-0-10-0')">10</button>
+  <button onclick="startBreathing(11,0,11,0,'11-0-11-0')">11</button>
+</div>
+
+<div class="custom-controls">
+  <label for="inhaleTime">Inspiration (sec):</label>
+  <input type="number" id="inhaleTime" value="5">
+  <label for="pause1Time">Arrêt 1 (sec):</label>
+  <input type="number" id="pause1Time" value="0">
+  <label for="exhaleTime">Expiration (sec):</label>
+  <input type="number" id="exhaleTime" value="5">
+  <label for="pause2Time">Arrêt 2 (sec):</label>
+  <input type="number" id="pause2Time" value="0">
+  <button onclick="startCustomBreathing()">Personnalisé</button>
+</div>
 
 <script>
+/* éléments DOM */
 let circle = document.getElementById('circle');
 let instruction = document.getElementById('instruction');
 let modeLabel = document.getElementById('mode-label');
 let timerDisplay = document.getElementById('timer');
 let globalTimerDisplay = document.getElementById('global-timer');
+
 let interval;
 let globalTimerInterval;
 let totalTime = 0;
+let isMuted = true; // 🔇 par défaut
 
+/* sons (optionnels) */
+let inhaleSound = new Audio('inhale.mp3');
+let exhaleSound = new Audio('exhale.mp3');
+let pauseSound = new Audio('pause.mp3');
+
+function playSound(phase) {
+  if (isMuted) return;
+  try {
+    if (phase === 'inhale') {
+      inhaleSound.currentTime = 0; inhaleSound.play();
+    } else if (phase === 'exhale') {
+      exhaleSound.currentTime = 0; exhaleSound.play();
+    } else {
+      pauseSound.currentTime = 0; pauseSound.play();
+    }
+  } catch (e) {
+    // ignore play errors
+    console.warn('Impossible de jouer le son:', e);
+  }
+}
+
+/* toggle du son */
+document.getElementById('muteButton').addEventListener('click', () => {
+  isMuted = !isMuted;
+  document.getElementById('muteButton').textContent = isMuted ? '🔇 Son coupé' : '🔊 Son activé';
+});
+
+/* constantes d'échelle */
+const SCALE_INHALE = 1.4; // grossit
+const SCALE_EXHALE = 0.6; // réduit
+
+/**
+ * anime le cercle suivant la phase.
+ * - phase: 'inhale' | 'exhale' | 'pause'
+ * - duration: durée en secondes utilisée pour la transition (pour inhale/exhale)
+ *
+ * Comportement demandé :
+ * - inspire : cercle grossit -> vert
+ * - expire  : cercle réduit -> bleu
+ * - arrêt   : conserve la dernière taille -> gris (pas de modification de transform)
+ */
+function animateForPhase(phase, duration) {
+  if (phase === 'inhale') {
+    // transition pour monter
+    circle.style.transition = `transform ${duration}s ease-in-out`;
+    circle.style.transform = `scale(${SCALE_INHALE})`;
+    circle.style.backgroundColor = '#b3e2cd'; // vert pastel
+  } else if (phase === 'exhale') {
+    // transition pour descendre
+    circle.style.transition = `transform ${duration}s ease-in-out`;
+    circle.style.transform = `scale(${SCALE_EXHALE})`;
+    circle.style.backgroundColor = '#8ecae6'; // bleu pastel
+  } else { // pause
+    // ne change pas la taille (conserve la dernière transform)
+    // on enlève la transition pour éviter toute animation involontaire pendant la pause
+    circle.style.transition = `none`;
+    circle.style.backgroundColor = 'gray';
+    // transform laissé tel quel (conserve dernière valeur)
+  }
+}
+
+/* fonction principale */
 function startBreathing(inhale, pause1, exhale, pause2, label) {
   clearInterval(interval);
   clearInterval(globalTimerInterval);
   totalTime = 0;
   modeLabel.textContent = "Mode : " + label;
+
   let phase = 'inhale';
   instruction.textContent = 'Inspire...';
-  setCircleColor('#b3e2cd'); // Pastel Green
-  animateCircle(inhale);
+  // initialise la taille et la couleur en fonction de l'inhale
+  animateForPhase('inhale', inhale);
   updateTimer(phase, inhale, 0);
+  playSound(phase);
   updateGlobalTimer();
 
   let count = 0;
@@ -108,63 +179,71 @@ function startBreathing(inhale, pause1, exhale, pause2, label) {
 
   interval = setInterval(() => {
     count++;
+    // INHALE
     if (phase === 'inhale') {
       if (count >= inhale) {
         count = 0;
         if (pause1 > 0) {
           phase = 'pause1';
-          instruction.textContent = 'Arrêt 1...';
-          setCircleColor('gray');
-          animateCircle(pause1, false);
+          instruction.textContent = 'Arrêt...';
+          // pause : ne modifie pas la taille, mais change couleur en gris
+          animateForPhase('pause', pause1);
           updateTimer(phase, pause1, 0);
+          playSound('pause');
         } else {
           phase = 'exhale';
           instruction.textContent = 'Expire...';
-          setCircleColor('#8ecae6');
-          animateCircle(exhale, true);
+          animateForPhase('exhale', exhale);
           updateTimer(phase, exhale, 0);
+          playSound('exhale');
         }
       } else {
         updateTimer(phase, inhale, count);
       }
+
+    // PAUSE1
     } else if (phase === 'pause1') {
       if (count >= pause1) {
         count = 0;
         phase = 'exhale';
         instruction.textContent = 'Expire...';
-        setCircleColor('#8ecae6');
-        animateCircle(exhale, true);
+        animateForPhase('exhale', exhale);
         updateTimer(phase, exhale, 0);
+        playSound('exhale');
       } else {
         updateTimer(phase, pause1, count);
       }
+
+    // EXHALE
     } else if (phase === 'exhale') {
       if (count >= exhale) {
         count = 0;
         if (pause2 > 0) {
           phase = 'pause2';
-          instruction.textContent = 'Arrêt 2...';
-          setCircleColor('gray');
-          animateCircle(pause2, false);
+          instruction.textContent = 'Arrêt...';
+          animateForPhase('pause', pause2);
           updateTimer(phase, pause2, 0);
+          playSound('pause');
         } else {
           phase = 'inhale';
           instruction.textContent = 'Inspire...';
-          setCircleColor('#b3e2cd');
-          animateCircle(inhale);
+          animateForPhase('inhale', inhale);
           updateTimer(phase, inhale, 0);
+          playSound('inhale');
         }
       } else {
         updateTimer(phase, exhale, count);
       }
-    } else { // phase === 'pause2'
+
+    // PAUSE2
+    } else if (phase === 'pause2') {
       if (count >= pause2) {
         count = 0;
         phase = 'inhale';
         instruction.textContent = 'Inspire...';
-        setCircleColor('#b3e2cd');
-        animateCircle(inhale);
+        animateForPhase('inhale', inhale);
         updateTimer(phase, inhale, 0);
+        playSound('inhale');
       } else {
         updateTimer(phase, pause2, count);
       }
@@ -172,23 +251,20 @@ function startBreathing(inhale, pause1, exhale, pause2, label) {
   }, 1000);
 }
 
-function animateCircle(duration, shrink=false) {
-  circle.style.transition = `transform ${duration}s ease-in-out`;
-  circle.style.transform = shrink ? 'scale(0.6)' : 'scale(1.4)';
-}
-
+/* utilitaires */
 function startCustomBreathing() {
   let inhaleTime = parseInt(document.getElementById('inhaleTime').value);
   let pause1Time = parseInt(document.getElementById('pause1Time').value);
   let exhaleTime = parseInt(document.getElementById('exhaleTime').value);
   let pause2Time = parseInt(document.getElementById('pause2Time').value);
 
-  if (isNaN(inhaleTime) || isNaN(exhaleTime) || isNaN(pause1Time) || isNaN(pause2Time) || inhaleTime < 0 || exhaleTime < 0 || pause1Time < 0 || pause2Time < 0) {
+  if (isNaN(inhaleTime) || isNaN(exhaleTime) || isNaN(pause1Time) || isNaN(pause2Time) ||
+      inhaleTime < 0 || exhaleTime < 0 || pause1Time < 0 || pause2Time < 0) {
     alert("Veuillez entrer des valeurs valides.");
     return;
   }
-
-  startBreathing(inhaleTime, pause1Time, exhaleTime, pause2Time, `Personnalisé ${inhaleTime}-${pause1Time}-${exhaleTime}-${pause2Time}`);
+  startBreathing(inhaleTime, pause1Time, exhaleTime, pause2Time,
+                 `Personnalisé ${inhaleTime}-${pause1Time}-${exhaleTime}-${pause2Time}`);
 }
 
 function updateTimer(phase, duration, count) {
@@ -196,14 +272,12 @@ function updateTimer(phase, duration, count) {
 }
 
 function updateGlobalTimer() {
-  globalTimerDisplay.textContent = `Temps total: ${totalTime}s`;
+  let minutes = Math.floor(totalTime / 60);
+  let seconds = totalTime % 60;
+  globalTimerDisplay.textContent = `Temps total: ${minutes} min ${seconds} sec`;
 }
 
-function setCircleColor(color) {
-  circle.style.backgroundColor = color;
-}
-
-// Wake Lock pour éviter la veille sur Android/Chrome
+/* Wake Lock (inchangé) */
 let wakeLock = null;
 async function requestWakeLock() {
   try {
@@ -221,15 +295,18 @@ document.addEventListener('visibilitychange', () => {
 });
 requestWakeLock();
 
-// Enregistrer le service worker
+/* service worker (inchangé) */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js').then(() => {
     console.log('Service Worker enregistré');
   });
 }
 
-// Démarrage par défaut
-startBreathing(8, 0, 8, 0, 'Standard 8-0-8-0');
+/* démarrage après clic (permet autorisation son) */
+document.getElementById('startButton').addEventListener('click', () => {
+  startBreathing(5, 0, 5, 0, '5-0-5-0');
+  document.getElementById('startButton').disabled = true;
+});
 </script>
 </body>
 </html>
